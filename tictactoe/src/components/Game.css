@@ -1,0 +1,42 @@
+.game {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.status, .player {
+    margin-bottom: 10px;
+}
+
+.board-row {
+    display: flex;
+}
+
+.square {
+    width: 60px;
+    height: 60px;
+    background: #fff;
+    border: 1px solid #999;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.restart {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background: #28a745;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+.lobby, .invites {
+    margin-top: 20px;
+}
+
+button {
+    padding: 5px 10px;
+    margin: 5px;
+    cursor: pointer;
+}
