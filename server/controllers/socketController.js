@@ -1,4 +1,5 @@
 function socketController(io) {
+    let count = 0;
     let games = {};
     let availablePlayers = [];
 
@@ -18,10 +19,13 @@ function socketController(io) {
     }
 
     io.on('connection', (socket) => {
+        count++;
+        console.log('Number of clients connected:', count);
         console.log('New client connected:', socket.id);
 
         availablePlayers.push(socket.id);
-        io.emit('updateLobby', availablePlayers);
+        io.emit('updateLobby', availablePlayers);  // Ensure this is emitted correctly
+        console.log('emitted Available players:', availablePlayers);
 
         socket.on('searchPlayer', (playerId) => {
             if (availablePlayers.includes(playerId)) {
@@ -36,7 +40,7 @@ function socketController(io) {
             socket.join(roomId);
             const players = [...io.sockets.adapter.rooms.get(roomId)];
             console.log(`Player ${socket.id} accepted invite to room ${roomId}`);
-            
+
             if (!games[roomId]) {
                 games[roomId] = {
                     players: players,
@@ -97,6 +101,8 @@ function socketController(io) {
                 }
                 socket.leave(room);
             }
+            count--;
+            console.log('Number of clients connected:', count);
         });
     });
 }

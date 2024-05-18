@@ -12,12 +12,14 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [socket, setSocket] = useState(null);
+    const [isSocketInitialized, setIsSocketInitialized] = useState(false);
 
     useEffect(() => {
         if (isAuthenticated && !socket) {
             const newSocket = io('http://localhost:4000');
             newSocket.on('connect', () => {
                 console.log('Socket connected:', newSocket.id);
+                setIsSocketInitialized(true);
             });
             setSocket(newSocket);
         }
@@ -48,11 +50,12 @@ export const AuthProvider = ({ children }) => {
         if (socket) {
             socket.disconnect();
             setSocket(null);
+            setIsSocketInitialized(false);
         }
     };
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, login, signup, logout, socket }}>
+        <AuthContext.Provider value={{ isAuthenticated, login, signup, logout, socket, isSocketInitialized }}>
             {children}
         </AuthContext.Provider>
     );

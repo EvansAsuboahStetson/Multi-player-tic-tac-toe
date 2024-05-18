@@ -4,12 +4,20 @@ import Lobby from './Lobby';
 import Invites from './Invites';
 import './Game.css';
 import useSocket from './useSocket';
+import { useAuth } from '../context/authenticated';
 
 const Game = () => {
+    const { socket, isSocketInitialized } = useAuth();
     const {
         squares, xIsNext, player, waiting, winner, gameOver, availablePlayers, invites, currentRoom,
         handleClick, handleRestart, handleInvite, handleAcceptInvite, status
-    } = useSocket();
+    } = useSocket(socket, isSocketInitialized);
+
+    if (!isSocketInitialized) {
+        return <div>Loading...</div>;
+    }
+
+    console.log('Game render', squares, xIsNext, player, waiting, winner, gameOver, availablePlayers, invites, currentRoom);
 
     return (
         <div className="game">
