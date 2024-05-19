@@ -30,6 +30,7 @@ npm or yarn
 # Installation
 Clone the repository:
 git clone git@github.com:EvansAsuboahStetson/Multi-player-tic-tac-toe.git
+
 cd multiplayer-tic-tac-toe
 
 # Install backend dependencies:
