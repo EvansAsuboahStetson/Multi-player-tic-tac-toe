@@ -3,7 +3,7 @@ import { useAuth } from '../context/authenticated';
 import './Login.css';
 
 const Login = () => {
-    const { login } = useAuth();
+    const { login, authError } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -39,7 +39,7 @@ const Login = () => {
                         required
                     />
                 </div>
-                {error && <div className="error">{error}</div>}
+                {authError && <p style={{ color: 'red' }}>{authError}</p>}
                 <button className="login-button" type="submit">Login</button>
             </form>
         </div>

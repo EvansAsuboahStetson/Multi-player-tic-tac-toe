@@ -1,7 +1,9 @@
+const db = require('../db/database');
+
 function socketController(io) {
     let count = 0;
     let games = {};
-    let availablePlayers = [];
+    let availablePlayers = new Map(); // Map to store socket IDs and usernames
 
     function calculateWinner(squares) {
         const lines = [
@@ -19,27 +21,39 @@ function socketController(io) {
     }
 
     io.on('connection', (socket) => {
-        count++;
-        console.log('Number of clients connected:', count);
-        console.log('New client connected:', socket.id);
+        console.log('Client connected:', socket.id);
 
-        availablePlayers.push(socket.id);
-        io.emit('updateLobby', availablePlayers);  // Ensure this is emitted correctly
-        console.log('emitted Available players:', availablePlayers);
+        socket.on('register', (username) => {
+            console.log('Register event received:', socket.id, 'Username:', username);
+            if (!availablePlayers.has(socket.id)) {
+                count++;
+                availablePlayers.set(socket.id, username);
+                console.log('Number of clients connected:', count);
+            }
 
-        socket.on('searchPlayer', (playerId) => {
-            if (availablePlayers.includes(playerId)) {
-                const room = `${socket.id}-${playerId}`;
+            // Emit updateLobby to the newly connected client excluding the current player
+            socket.emit('updateLobby', Array.from(availablePlayers.values()).filter(player => player !== username));
+
+            // Emit updateLobby to all other clients excluding the newly connected client
+            socket.broadcast.emit('updateLobby', Array.from(availablePlayers.values()));
+
+            console.log('Emitted available players:', Array.from(availablePlayers.values()));
+        });
+
+        socket.on('searchPlayer', (username) => {
+            const playerSocketId = Array.from(availablePlayers.entries()).find(([id, name]) => name === username)?.[0];
+            if (playerSocketId) {
+                const room = `${socket.id}-${playerSocketId}`;
                 socket.join(room);
-                console.log(`Player ${socket.id} invited ${playerId} to room ${room}`);
-                io.to(playerId).emit('gameInvite', { roomId: room, from: socket.id });
+                console.log(`Player ${availablePlayers.get(socket.id)} invited ${username} to room ${room}`);
+                io.to(playerSocketId).emit('gameInvite', { roomId: room, from: availablePlayers.get(socket.id) });
             }
         });
 
         socket.on('acceptInvite', (roomId) => {
             socket.join(roomId);
             const players = [...io.sockets.adapter.rooms.get(roomId)];
-            console.log(`Player ${socket.id} accepted invite to room ${roomId}`);
+            console.log(`Player ${availablePlayers.get(socket.id)} accepted invite to room ${roomId}`);
 
             if (!games[roomId]) {
                 games[roomId] = {
@@ -55,11 +69,11 @@ function socketController(io) {
 
             io.to(roomId).emit('gameState', games[roomId]);
             players.forEach(playerId => io.to(playerId).emit('roomJoined', roomId));
-            io.emit('updateLobby', availablePlayers.filter(id => !players.includes(id)));
+            io.emit('updateLobby', Array.from(availablePlayers.values()).filter(username => !players.includes(username)));
         });
 
         socket.on('makeMove', ({ roomId, index }) => {
-            console.log(`Player ${socket.id} made move ${index} in room ${roomId}`);
+            console.log(`Player ${availablePlayers.get(socket.id)} made move ${index} in room ${roomId}`);
             const game = games[roomId];
             if (game && game.full && game.squares[index] === null && game.players[game.xIsNext ? 0 : 1] === socket.id) {
                 game.squares[index] = game.xIsNext ? 'X' : 'O';
@@ -72,7 +86,7 @@ function socketController(io) {
                 console.log(`Game state updated for room ${roomId}`, game);
                 io.to(roomId).emit('gameState', game);
             } else {
-                console.log(`Invalid move attempted by ${socket.id} in room ${roomId}`);
+                console.log(`Invalid move attempted by ${availablePlayers.get(socket.id)} in room ${roomId}`);
             }
         });
 
@@ -88,9 +102,9 @@ function socketController(io) {
         });
 
         socket.on('disconnect', () => {
-            console.log('Client disconnected:', socket.id);
-            availablePlayers = availablePlayers.filter(id => id !== socket.id);
-            io.emit('updateLobby', availablePlayers);
+            console.log('Client disconnected:', socket.id, 'Username:', availablePlayers.get(socket.id));
+            availablePlayers.delete(socket.id);
+            io.emit('updateLobby', Array.from(availablePlayers.values()));
             for (const room in games) {
                 const game = games[room];
                 if (game.players.includes(socket.id)) {

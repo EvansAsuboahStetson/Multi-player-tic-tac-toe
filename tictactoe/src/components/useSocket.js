@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../context/authenticated';
 
-const useSocket = (authSocket, isSocketInitialized) => {
-    console.log('useSocket before useRef:', authSocket, isSocketInitialized);
+const useSocket = (initialSocket, isSocketInitialized) => {
     const [squares, setSquares] = useState(Array(9).fill(null));
     const [xIsNext, setXIsNext] = useState(true);
     const [player, setPlayer] = useState(null);
@@ -11,72 +11,70 @@ const useSocket = (authSocket, isSocketInitialized) => {
     const [availablePlayers, setAvailablePlayers] = useState([]);
     const [invites, setInvites] = useState([]);
     const [currentRoom, setCurrentRoom] = useState(null);
-
-    const socket = useRef(null);
+    const socketRef = initialSocket;
+    const { user } = useAuth();
 
     useEffect(() => {
-        if (isSocketInitialized && authSocket) {
-            socket.current = authSocket;
-            console.log('Socket connected:', socket.current.id);
-
-            socket.current.on('gameState', (game) => {
-                console.log('Game state:', game);
-                setSquares(game.squares);
-                setXIsNext(game.xIsNext);
-                setPlayer(game.players[0] === socket.current.id ? 'X' : 'O');
-                setWaiting(!game.full);
-                setWinner(game.winner);
-                setGameOver(game.gameOver);
-            });
-
-            socket.current.on('updateLobby', (players) => {
-                console.log('updateLobby event received:', players);
-                setAvailablePlayers(players.filter(id => id !== socket.current.id));
-            });
-
-            socket.current.on('gameInvite', (invite) => {
-                setInvites(prevInvites => [...prevInvites, invite]);
-            });
-
-            socket.current.on('roomJoined', (roomId) => {
-                setCurrentRoom(roomId);
-            });
-
-            return () => {
-                if (socket.current) {
-                    socket.current.off('gameState');
-                    socket.current.off('updateLobby');
-                    socket.current.off('gameInvite');
-                    socket.current.off('roomJoined');
-                }
-            };
+        if (!isSocketInitialized) {
+            return;
         }
-    }, [authSocket, isSocketInitialized]);
+
+        if (socketRef && !socketRef.connected) {
+            socketRef.connect();
+        }
+
+        socketRef.on('gameState', (game) => {
+            setSquares(game.squares);
+            setXIsNext(game.xIsNext);
+            setPlayer(game.players[0] === socketRef.id ? 'X' : 'O');
+            setWaiting(!game.full);
+            setWinner(game.winner);
+            setGameOver(game.gameOver);
+        });
+
+        socketRef.on('updateLobby', (players) => {
+            setAvailablePlayers(players.filter(player => player !== user.username));
+        });
+
+        socketRef.on('gameInvite', (invite) => {
+            setInvites(prevInvites => [...prevInvites, invite]);
+        });
+
+        socketRef.on('roomJoined', (roomId) => {
+            setCurrentRoom(roomId);
+        });
+
+        return () => {
+            if (socketRef) {
+                socketRef.off('gameState');
+                socketRef.off('updateLobby');
+                socketRef.off('gameInvite');
+                socketRef.off('roomJoined');
+            }
+        };
+    }, [socketRef, isSocketInitialized, user]);
 
     const handleClick = (i) => {
         if (currentRoom && !waiting && !gameOver && squares[i] === null && ((xIsNext && player === 'X') || (!xIsNext && player === 'O'))) {
-            socket.current.emit('makeMove', { roomId: currentRoom, index: i });
+            socketRef.emit('makeMove', { roomId: currentRoom, index: i });
         }
     };
 
     const handleRestart = () => {
         if (currentRoom) {
-            socket.current.emit('restartGame', currentRoom);
+            socketRef.emit('restartGame', currentRoom);
             setWinner(null);
             setGameOver(false);
         }
     };
 
     const handleInvite = (playerId) => {
-        console.log('Invite player:', playerId);
-        socket.current.emit('searchPlayer', playerId);
+        socketRef.emit('searchPlayer', playerId);
     };
 
     const handleAcceptInvite = (invite) => {
-        console.log('Accept invite:', invite);
-
         setCurrentRoom(invite.roomId);
-        socket.current.emit('acceptInvite', invite.roomId);
+        socketRef.emit('acceptInvite', invite.roomId);
         setInvites(invites.filter(i => i.roomId !== invite.roomId));
     };
 

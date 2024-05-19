@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Board from './Board';
 import Lobby from './Lobby';
 import Invites from './Invites';
@@ -13,11 +13,21 @@ const Game = () => {
         handleClick, handleRestart, handleInvite, handleAcceptInvite, status
     } = useSocket(socket, isSocketInitialized);
 
+    useEffect(() => {
+
+        if (isSocketInitialized && socket) {
+
+            socket.emit('updateLobby',availablePlayers);
+            console.log('Game useEffect socket initialized');
+            console.log('Game useEffect socket initialized', availablePlayers);
+        }
+    }, [socket, isSocketInitialized, availablePlayers]);
+
     if (!isSocketInitialized) {
         return <div>Loading...</div>;
     }
 
-    console.log('Game render', squares, xIsNext, player, waiting, winner, gameOver, availablePlayers, invites, currentRoom);
+    console.log('Game render availablePlayers', availablePlayers);
 
     return (
         <div className="game">

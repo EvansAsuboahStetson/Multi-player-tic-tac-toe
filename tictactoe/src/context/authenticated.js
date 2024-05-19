@@ -1,37 +1,73 @@
-import React, { useState, createContext, useContext, useEffect } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
+import axios from 'axios';
 
-// Create a context for authentication
 const AuthContext = createContext();
 
-// Custom hook to use the AuthContext
-export const useAuth = () => useContext(AuthContext);
-
-// Provider component that wraps your app and makes auth object available to any child component that calls useAuth().
 export const AuthProvider = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [socket, setSocket] = useState(null);
     const [isSocketInitialized, setIsSocketInitialized] = useState(false);
+    const [user, setUser] = useState(null);
+    const [authError, setAuthError] = useState(null);
+    const socketRef = useRef(null);
 
     useEffect(() => {
-        if (isAuthenticated && !socket) {
-            const newSocket = io('http://localhost:4000');
-            newSocket.on('connect', () => {
-                console.log('Socket connected:', newSocket.id);
-                setIsSocketInitialized(true);
-            });
-            setSocket(newSocket);
+        const token = localStorage.getItem('token');
+        if (token) {
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            axios.get('http://localhost:4000/users/validateToken')
+                .then(response => {
+                    setIsAuthenticated(true);
+                    setUser(response.data.user);
+                    initializeSocket(response.data.user.username);
+                })
+                .catch(error => {
+                    console.error('Token validation error:', error);
+                    logout();
+                });
         }
-    }, [isAuthenticated, socket]);
+    }, []);
+
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            initializeSocket(user.username);
+        }
+    }, [isAuthenticated, user]);
+
+    const initializeSocket = (username) => {
+        if (socketRef.current) {
+            socketRef.current.disconnect();
+        }
+
+        socketRef.current = io('http://localhost:4000', {
+            query: { username }
+        });
+
+        socketRef.current.on('connect', () => {
+            setIsSocketInitialized(true);
+            socketRef.current.emit('register', username); // Emit register event
+        });
+
+        socketRef.current.on('disconnect', () => {
+            setIsSocketInitialized(false);
+
+
+            console.log('Socket disconnected:', socketRef.current.id);
+        });
+    };
 
     const login = async (email, password) => {
         try {
             const response = await axios.post('http://localhost:4000/users/login', { email, password });
             setIsAuthenticated(true);
-            return response.data;
-        } catch (err) {
-            throw new Error(err.response?.data?.error || 'Error logging in. Please try again.');
+            setUser(response.data.user);
+            localStorage.setItem('token', response.data.token);
+            axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+            setAuthError(null);
+            initializeSocket(response.data.user.username);
+        } catch (error) {
+            setAuthError(error.response?.data?.error || 'Login failed');
+            console.error('Login error:', error.response?.data?.error);
         }
     };
 
@@ -39,24 +75,32 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await axios.post('http://localhost:4000/users/register', { email, username, password });
             setIsAuthenticated(true);
-            return response.data;
-        } catch (err) {
-            throw new Error(err.response?.data?.error || 'Error registering user. Please try again.');
+            setUser(response.data.user);
+            localStorage.setItem('token', response.data.token);
+            axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+            setAuthError(null);
+            initializeSocket(response.data.user.username);
+        } catch (error) {
+            setAuthError(error.response?.data?.error || 'Signup failed');
+            console.error('Signup error:', error.response?.data?.error);
         }
     };
 
     const logout = () => {
         setIsAuthenticated(false);
-        if (socket) {
-            socket.disconnect();
-            setSocket(null);
-            setIsSocketInitialized(false);
+        setUser(null);
+        localStorage.removeItem('token');
+        delete axios.defaults.headers.common['Authorization'];
+        if (socketRef.current) {
+            socketRef.current.disconnect();
         }
     };
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, login, signup, logout, socket, isSocketInitialized }}>
+        <AuthContext.Provider value={{ isAuthenticated, login, signup, logout, socket: socketRef.current, isSocketInitialized, user, authError }}>
             {children}
         </AuthContext.Provider>
     );
 };
+
+export const useAuth = () => useContext(AuthContext);

@@ -1,60 +1,57 @@
 const db = require('../db/database');
-const bcrypt = require('bcrypt');
 
-// Add a new user (registration)
+
+// Register a new user
 function registerUser(email, username, password, callback) {
-    // Hash the password before storing it
-    bcrypt.hash(password, 10, (err, hash) => {
+    const query = `INSERT INTO users (email, username, password) VALUES (?, ?, ?)`;
+    db.run(query, [email, username, password], function (err) {
         if (err) {
-            return callback(err);
+            callback(err);
+        } else {
+            callback(null, { id: this.lastID, email, username });
         }
-        const query = `INSERT INTO users (email, username, password) VALUES (?, ?, ?)`;
-        db.run(query, [email, username, hash], function(err) {
-            if (err) {
-                return callback(err);
-            }
-            callback(null, { id: this.lastID });
-        });
     });
 }
 
-
+// Check username availability
 function checkUsernameAvailability(username, callback) {
-    const query = `SELECT * FROM users WHERE username = ?`;
-    db.get(query, [username], (err, user) => {
+    const query = `SELECT COUNT(*) as count FROM users WHERE username = ?`;
+    db.get(query, [username], (err, row) => {
         if (err) {
-            return callback(err);
+            callback(err);
+        } else {
+            callback(null, row.count === 0);
         }
-        callback(null, !user); // If user is null, username is available
     });
 }
 
-// Authenticate a user (login)
-function loginUser(email, password, callback) {
+// Login a user
+function loginUser(email, callback) {
     const query = `SELECT * FROM users WHERE email = ?`;
-    db.get(query, [email], (err, user) => {
+    db.get(query, [email], (err, row) => {
         if (err) {
-            return callback(err);
+            callback(err);
+        } else {
+            callback(null, row);
         }
-        if (!user) {
-            return callback(null, false); // User not found
+    });
+}
+
+// Get user by ID
+function getUserById(id, callback) {
+    const query = `SELECT * FROM users WHERE id = ?`;
+    db.get(query, [id], (err, row) => {
+        if (err) {
+            callback(err);
+        } else {
+            callback(null, row);
         }
-        // Compare the hashed password
-        bcrypt.compare(password, user.password, (err, isMatch) => {
-            if (err) {
-                return callback(err);
-            }
-            if (isMatch) {
-                callback(null, user); // Password matches
-            } else {
-                callback(null, false); // Password does not match
-            }
-        });
     });
 }
 
 module.exports = {
     registerUser,
     checkUsernameAvailability,
-    loginUser
+    loginUser,
+    getUserById
 };

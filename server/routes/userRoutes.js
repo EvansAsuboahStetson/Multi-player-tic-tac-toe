@@ -12,4 +12,7 @@ router.get('/checkUsername', userController.checkUsername);
 // Login a user
 router.post('/login', userController.login);
 
+// Validate token
+router.get('/validateToken', userController.validateToken);
+
 module.exports = router;
