@@ -1,6 +1,10 @@
+
 # Multi-player-tic-tac-toe
 Competitive Multi-player-tic-tac-toe
 
+# Video of it Working
+
+https://youtu.be/wdjjeAhdbA4
 
 # Multiplayer Tic-Tac-Toe Game
 This is a real-time multiplayer Tic-Tac-Toe game built using React, Socket.io, Node.js, and Express. The application supports user authentication and provides an interactive gaming experience with real-time updates and player interactions.
@@ -25,4 +29,22 @@ npm or yarn
 
 # Installation
 Clone the repository:
-git clone
+git clone git@github.com:EvansAsuboahStetson/Multi-player-tic-tac-toe.git
+cd multiplayer-tic-tac-toe
+
+# Install backend dependencies:
+cd server
+npm install
+
+# Install frontend dependencies:
+cd tictactoe
+npm install
+
+# Start the frontend server:
+npm run start
+
+# Start the backend server:
+npm run start
+
+
+
